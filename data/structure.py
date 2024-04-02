@@ -42,11 +42,11 @@ class ImageSegmentationDataset(Dataset):
             inst2class.update({i: label for i in instance_ids})
 
         if self.transform is not None:
-            transformed = self.transform(image=image, mask=instance_seg)
+            transformed = self.transform(image=image, mask=class_id_map)
             (image, instance_seg) = (transformed["image"], transformed["mask"])
 
             classes_transf = instance_seg
-            classes_transf[classes_transf != 0] = 1
+            #classes_transf[classes_transf != 0] = 1
 
             image = image.transpose(2, 0, 1)
         if class_labels.shape[0] == 1 and class_labels[0] == 0:
@@ -62,7 +62,7 @@ class ImageSegmentationDataset(Dataset):
             inputs = self.processor(
                 [image],
                 [instance_seg],
-                instance_id_to_semantic_id=inst2class,
+                #instance_id_to_semantic_id=inst2class,
                 return_tensors="pt"
             )
             inputs = {

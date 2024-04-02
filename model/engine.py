@@ -63,8 +63,9 @@ def train(
 
     ##### PER EPOCH LOSS #####
     train_loss = sum(train_running_loss)/len(train_running_loss)
-    iou = metric.compute(num_labels=2, ignore_index=255, reduce_labels=True)['mean_iou']
-    return train_loss, iou
+    #, reduce_labels=True
+    metric = metric.compute(num_labels=num_classes, ignore_index=255)
+    return train_loss, metric
 
 
 def validate(
@@ -101,6 +102,14 @@ def validate(
             pred_maps = processor.post_process_semantic_segmentation(
                 outputs, target_sizes=target_sizes
             )
+            pred_maps_un = []
+            batch_un = []
+            for pr_map in pred_maps:
+                pred_maps_un.append(np.unique(pr_map))
+            for bt in batch['orig_masks']:
+                batch_un.append(np.unique(bt))
+            print(f"pred {pred_maps_un}")
+            print(f"bt {batch_un}")
 
             ###########################
             metric.add_batch(references=batch['orig_masks'], predictions=pred_maps)
@@ -108,5 +117,6 @@ def validate(
     ##### PER EPOCH LOSS #####
     valid_loss = sum(valid_running_loss)/len(valid_running_loss)
     ##########################
-    iou = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)['mean_iou']
-    return valid_loss, iou
+    #, reduce_labels=True
+    metric = metric.compute(num_labels=num_classes, ignore_index=255)
+    return valid_loss, metric

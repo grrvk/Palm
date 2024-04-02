@@ -9,23 +9,21 @@ from transformers import (
 )
 
 def load_model(num_classes=2):
-    preprocessor = MaskFormerImageProcessor(
+    preprocessor = Mask2FormerImageProcessor(
+        ignore_index=255, do_normalize=False, do_rescale=False, do_resize=False
         #reduce_labels=True,
-        size=(512, 512),
-        ignore_index=255,
-        do_resize=False,
-        do_rescale=False,
-        do_normalize=False,
     )
 
-    model_name = "facebook/maskformer-swin-base-ade"
-    config = MaskFormerConfig.from_pretrained(model_name)
-    id2label = {0: 'bg', 1: 'Table'}
-    label2id = {'bg': 0, 'Table': 1}
-    config.id2label = id2label
-    config.label2id = label2id
-    model = MaskFormerForInstanceSegmentation(config)
-    base_model = MaskFormerModel.from_pretrained(model_name)
-    model.model = base_model
+    model = Mask2FormerForUniversalSegmentation.from_pretrained(
+        'facebook/mask2former-swin-tiny-ade-semantic',
+        num_labels=num_classes,
+        ignore_mismatched_sizes=True
+    )
+
+    '''model = Mask2FormerForUniversalSegmentation.from_pretrained(
+        'facebook/mask2former-swin-tiny-coco-instance',
+        num_labels=num_classes,
+        ignore_mismatched_sizes=True
+    )'''
 
     return model, preprocessor

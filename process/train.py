@@ -1,10 +1,11 @@
 import torch
 from torch.optim.lr_scheduler import MultiStepLR
-from utils import save_model, plot_loss_miou
+from utils import save_model, plot_loss_miou, dump_metrics_log
 import evaluate
 from model.engine import train, validate
 from model.model import load_model
 from data.dataset import get_datasets, get_data_loaders
+from datetime import datetime
 
 
 def run(train_data, valid_data, epochs, batch_size, lr=5e-5):
@@ -30,7 +31,7 @@ def run(train_data, valid_data, epochs, batch_size, lr=5e-5):
 
     for epoch in range(epochs):
         print(f"EPOCH: {epoch + 1}")
-        train_epoch_loss, train_epoch_miou = train(
+        train_epoch_loss, train_epoch_metric = train(
             model,
             train_dataloader,
             device,
@@ -40,7 +41,7 @@ def run(train_data, valid_data, epochs, batch_size, lr=5e-5):
             metric
         )
 
-        valid_epoch_loss, valid_epoch_miou = validate(
+        valid_epoch_loss, valid_epoch_metric = validate(
             model,
             valid_dataloader,
             device,
@@ -48,22 +49,24 @@ def run(train_data, valid_data, epochs, batch_size, lr=5e-5):
             processor,
             metric
         )
+        total_metrics = {'train': train_epoch_metric, 'validation': valid_epoch_metric}
 
         train_loss.append(train_epoch_loss)
-        train_miou.append(train_epoch_miou)
+        train_miou.append(train_epoch_metric['mean_iou'])
         valid_loss.append(valid_epoch_loss)
-        valid_miou.append(valid_epoch_miou)
+        valid_miou.append(valid_epoch_metric['mean_iou'])
 
         print(
             f"Train Epoch Loss: {train_epoch_loss:.4f},",
-            f"Train Epoch mIOU: {train_epoch_miou:4f}"
+            f"Train Epoch mIOU: {train_epoch_metric['mean_iou']:4f}"
         )
         print(
             f"Valid Epoch Loss: {valid_epoch_loss:.4f},",
-            f"Valid Epoch mIOU: {valid_epoch_miou:4f}"
+            f"Valid Epoch mIOU: {valid_epoch_metric['mean_iou']:4f}"
         )
 
         scheduler.step()
+        dump_metrics_log(epoch+1, datetime.now().time(), total_metrics)
 
     plot_loss_miou(epochs, train_loss, valid_loss, train_miou, valid_miou)
     save_model(model, processor)
