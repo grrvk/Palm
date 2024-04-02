@@ -1,6 +1,6 @@
 import torch
 from torch.optim.lr_scheduler import MultiStepLR
-from utils import save_model
+from utils import save_model, plot_loss_miou
 import evaluate
 from model.engine import train, validate
 from model.model import load_model
@@ -65,5 +65,6 @@ def run(train_data, valid_data, epochs, batch_size, lr=5e-5):
 
         scheduler.step()
 
+    plot_loss_miou(epochs, train_loss, valid_loss, train_miou, valid_miou)
     save_model(model, processor)
     print('TRAINING COMPLETE')

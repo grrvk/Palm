@@ -48,13 +48,13 @@ def inf(image, model=None, processor=None):
     with torch.no_grad():
         outputs = model(**inputs)
 
-    '''result = processor.post_process_instance_segmentation(
+    result = processor.post_process_instance_segmentation(
         outputs,
         threshold=0.4,
         target_sizes=[[image.size[1], image.size[0]]]
-    )[0]'''
+    )[0]
 
-    result = processor.post_process_semantic_segmentation(
+    '''result = processor.post_process_semantic_segmentation(
         outputs,
         target_sizes=[[image.size[1], image.size[0]]]
     )[0]
@@ -66,10 +66,10 @@ def inf(image, model=None, processor=None):
 
     plt.imshow(image)
     plt.axis("off")
-    plt.show()
+    plt.show()'''
 
 
-    '''instance_seg_mask = result["segmentation"].cpu().detach().numpy()
+    instance_seg_mask = result["segmentation"].cpu().detach().numpy()
     print(f"Final mask shape: {instance_seg_mask.shape}")
     print("Segments Information...")
     for info in result["segments_info"]:
@@ -90,5 +90,5 @@ def inf(image, model=None, processor=None):
         plt.imshow(plot_image)
         plt.title(title)
         plt.axis("off")
-        plt.show()'''
+        plt.show()
 

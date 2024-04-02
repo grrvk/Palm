@@ -43,30 +43,27 @@ def train(
         loss.backward()
         optimizer.step()
         ##################################################
-        target_sizes = [(image.shape[0], image.shape[1]) for image in batch['image']]
-        pred_maps = processor.post_process_instance_segmentation(
+
+        target_sizes = [(image.shape[1], image.shape[2]) for image in batch['orig_images']]
+        pred_maps = processor.post_process_semantic_segmentation(
             outputs, target_sizes=target_sizes
         )
-        pred_maps_2 = []
         pred_maps_un=[]
-        batch_mask_un=[]
+        batch_un=[]
+        for pr_map in pred_maps:
+            pred_maps_un.append(np.unique(pr_map))
+        for bt in batch['orig_masks']:
+            batch_un.append(np.unique(bt))
+        print(f"pred {pred_maps_un}")
+        print(f"bt {batch_un}")
 
-        for p_map in pred_maps:
-            #pred_maps_un.append(np.unique(p_map))
-            pred_maps_un.append(np.unique(p_map['segmentation'].cpu().detach().numpy()))
-            pred_maps_2.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
-            #print(np.array(p_map['segmentation'].cpu().detach().numpy()).shape)'''
-        for b_mask in batch['mask']:
-            batch_mask_un.append(np.unique(b_mask))
-            #print(b_mask.shape)
-        print(pred_maps_un)
-        print(batch_mask_un)
-        metric.add_batch(references=batch['mask'], predictions=pred_maps_2)
+        ###########################
+        metric.add_batch(references=batch['orig_masks'], predictions=pred_maps)
+
 
     ##### PER EPOCH LOSS #####
     train_loss = sum(train_running_loss)/len(train_running_loss)
-    ##########################
-    iou = metric.compute(num_labels=99, ignore_index=255, reduce_labels=True)['mean_iou']
+    iou = metric.compute(num_labels=2, ignore_index=255, reduce_labels=True)['mean_iou']
     return train_loss, iou
 
 
@@ -100,19 +97,16 @@ def validate(
             loss = outputs.loss
             valid_running_loss.append(loss.item())
 
-            '''target_sizes = [(image.shape[1], image.shape[2]) for image in batch['image']]
+            target_sizes = [(image.shape[1], image.shape[2]) for image in batch['orig_images']]
             pred_maps = processor.post_process_semantic_segmentation(
                 outputs, target_sizes=target_sizes
             )
 
-            ##### BATCH-WISE LOSS #####
-            loss = outputs.loss
-            valid_running_loss.append(loss.item())
             ###########################
-            metric.add_batch(references=batch['mask'], predictions=pred_maps)'''
+            metric.add_batch(references=batch['orig_masks'], predictions=pred_maps)
 
     ##### PER EPOCH LOSS #####
     valid_loss = sum(valid_running_loss)/len(valid_running_loss)
     ##########################
-    #iou = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)['mean_iou']
-    return valid_loss, 0
+    iou = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)['mean_iou']
+    return valid_loss, iou

@@ -3,33 +3,21 @@ from torch.utils.data import Dataset
 import numpy as np
 
 
-def collate_fn(batch):
-    inputs = list(zip(*batch))
-    pixel_values = torch.stack([example["pixel_values"] for example in inputs[0]])
-    pixel_mask = torch.stack([example["pixel_mask"] for example in inputs[0]])
-    mask_labels = [example["mask_labels"] for example in inputs[0]]
-    class_labels = [example["class_labels"] for example in inputs[0]]
+def collate_fn(examples):
+    orig_images = [example["orig_image"] for example in examples]
+    orig_masks = [example["orig_mask"] for example in examples]
+    pixel_values = torch.stack([example["pixel_values"] for example in examples])
+    pixel_mask = torch.stack([example["pixel_mask"] for example in examples])
+    mask_labels = [example["mask_labels"] for example in examples]
+    class_labels = [example["class_labels"] for example in examples]
     return {
-        "image": inputs[1],
-        "mask": inputs[2],
+        "orig_images": orig_images,
+        "orig_masks": orig_masks,
         "pixel_values": pixel_values,
         "pixel_mask": pixel_mask,
         "mask_labels": mask_labels,
         "class_labels": class_labels
     }
-
-def collate_fn2(batch, image_processor):
-    inputs = list(zip(*batch))
-    images = inputs[0]
-    segmentation_maps = inputs[1]
-    batch = image_processor(
-        images,
-        segmentation_maps=segmentation_maps,
-        return_tensors='pt',
-    )
-    batch['orig_image'] = inputs[2]
-    batch['orig_mask'] = inputs[3]
-    return batch
 
 
 class ImageSegmentationDataset(Dataset):
@@ -42,11 +30,11 @@ class ImageSegmentationDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        image = np.array(self.dataset[idx]["image"].convert("RGB")).astype('uint8')
-        class_id_map = np.array(self.dataset[idx]["annotation"])[..., 0].astype('float32')
-        orig_image=image.copy()
+        image = np.array(self.dataset[idx]["image"].convert("RGB"))
+
         instance_seg = np.array(self.dataset[idx]["annotation"])[..., 1]
-        orig_mask = instance_seg.copy()
+        class_id_map = np.array(self.dataset[idx]["annotation"])[..., 0]
+        classes_transf = class_id_map
         class_labels = np.unique(class_id_map)
         inst2class = {}
         for label in class_labels:
@@ -57,24 +45,29 @@ class ImageSegmentationDataset(Dataset):
             transformed = self.transform(image=image, mask=instance_seg)
             (image, instance_seg) = (transformed["image"], transformed["mask"])
 
-            image = image.transpose(2, 0, 1)
+            classes_transf = instance_seg
+            classes_transf[classes_transf != 0] = 1
 
-        '''if class_labels.shape[0] == 1 and class_labels[0] == 0:
+            image = image.transpose(2, 0, 1)
+        if class_labels.shape[0] == 1 and class_labels[0] == 0:
             inputs = self.processor([image], return_tensors="pt")
             inputs = {k: v.squeeze() for k, v in inputs.items()}
             inputs["class_labels"] = torch.tensor([0])
             inputs["mask_labels"] = torch.zeros(
                 (0, inputs["pixel_values"].shape[-2], inputs["pixel_values"].shape[-1])
             )
-        else:'''
-
-        inputs = self.processor(
+            inputs['orig_image'] = image
+            inputs['orig_mask'] = instance_seg
+        else:
+            inputs = self.processor(
                 [image],
                 [instance_seg],
                 instance_id_to_semantic_id=inst2class,
-                return_tensors="pt",
-        )
-        inputs = {
+                return_tensors="pt"
+            )
+            inputs = {
                 k: v.squeeze() if isinstance(v, torch.Tensor) else v[0] for k, v in inputs.items()
-        }
-        return inputs, orig_image, orig_mask
+            }
+            inputs['orig_image'] = image
+            inputs['orig_mask'] = classes_transf
+        return inputs

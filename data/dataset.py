@@ -1,7 +1,6 @@
 from torch.utils.data import DataLoader
 from data.transforms import train_transforms, valid_transforms
 from data.structure import ImageSegmentationDataset, collate_fn
-from functools import partial
 
 def get_datasets(train_data, valid_data, preprocessor, img_size):
 
@@ -29,7 +28,6 @@ def get_data_loaders(train_dataset, valid_dataset, batch_size):
     train_data_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        drop_last=False,
         shuffle=True,
         collate_fn=collate_fn
     )
@@ -37,7 +35,6 @@ def get_data_loaders(train_dataset, valid_dataset, batch_size):
     valid_data_loader = DataLoader(
         valid_dataset,
         batch_size=batch_size,
-        drop_last=False,
         shuffle=False,
         collate_fn=collate_fn
     )
