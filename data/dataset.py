@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 from data.transforms import train_transforms, valid_transforms
 from data.structure import ImageSegmentationDataset, collate_fn
 
-def get_datasets(train_data, valid_data, preprocessor, img_size):
+def get_datasets(train_data, valid_data, preprocessor, type, img_size):
 
     train_transform = train_transforms(img_size)
     validation_transform = valid_transforms(img_size)
@@ -10,13 +10,15 @@ def get_datasets(train_data, valid_data, preprocessor, img_size):
     train_dataset = ImageSegmentationDataset(
         dataset=train_data,
         processor=preprocessor,
-        transform=train_transform
+        transform=train_transform,
+        type=type
     )
 
     valid_dataset = ImageSegmentationDataset(
         dataset=valid_data,
         processor=preprocessor,
-        transform=validation_transform
+        transform=validation_transform,
+        type=type
     )
 
     return train_dataset, valid_dataset

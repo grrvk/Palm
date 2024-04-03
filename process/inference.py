@@ -3,6 +3,7 @@ from utils import load_model
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import collections
 
 
 def visualize_instance_seg_mask(mask):
@@ -16,8 +17,11 @@ def visualize_instance_seg_mask(mask):
             random.randint(0, 255),
             random.randint(0, 255),
         )
-        for label in labels
+        for label in labels if label != -1.0
     }
+    #label2color[-1] = (255, 255, 255)
+    label2color.update({-1.0: (255, 255, 255)})
+    print(collections.Counter(np.asarray(mask).reshape(-1)))
 
     for height in range(image.shape[0]):
         for width in range(image.shape[1]):
@@ -27,32 +31,68 @@ def visualize_instance_seg_mask(mask):
     return image
 
 
-def dataset_inference(dataset):
+def dataset_inference(dataset, inference_type):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, processor = load_model(device)
 
     for i, entry in enumerate(dataset):
         print(f"Image {i+1}")
         image = entry["image"].convert("RGB")
-        inf(image, model, processor)
+        if inference_type == 'instance':
+            inference_instance(image, model, processor)
+        else:
+            inference_semantic(image, model, processor)
 
-
-def inf(image, model=None, processor=None):
+def get_outputs(model_type, image, model=None, processor=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if not model or not processor:
-        model, processor = load_model(device)
+        model, processor = load_model(device, model_type)
 
     inputs = processor(images=image, return_tensors="pt").to(device)
 
     model.eval()
     with torch.no_grad():
         outputs = model(**inputs)
+    return outputs, processor
 
-    '''result = processor.post_process_semantic_segmentation(
+def inference_instance(image, model=None, processor=None):
+    outputs, processor = get_outputs('instance', image, model, processor)
+
+    result = processor.post_process_instance_segmentation(
         outputs,
-        #threshold=0.4,
+        threshold=0.7,
         target_sizes=[[image.size[1], image.size[0]]]
-    )[0]'''
+    )[0]
+
+    label_of_interest = 0
+    instance_seg_mask = result["segmentation"].cpu().detach().numpy()
+    print(result)
+    print(f"Final mask shape: {instance_seg_mask.shape}")
+    print("Segments Information...")
+    for info in result["segments_info"]:
+        print(f"  {info}")
+        if info.get('label_id') != label_of_interest:
+            instance_seg_mask[instance_seg_mask == info.get('id')] = -1
+
+    instance_seg_mask_disp = visualize_instance_seg_mask(instance_seg_mask)
+    plt.figure(figsize=(10, 10))
+
+    for plot_index in range(2):
+        if plot_index == 0:
+            plot_image = image
+            title = "Original"
+        else:
+            plot_image = instance_seg_mask_disp
+            title = "Instance egmentation"
+
+        plt.subplot(1, 2, plot_index + 1)
+        plt.imshow(plot_image)
+        plt.title(title)
+        plt.show()
+
+
+def inference_semantic(image, model=None, processor=None):
+    outputs, processor = get_outputs('semantic', image, model, processor)
 
     result = processor.post_process_semantic_segmentation(
         outputs,
@@ -65,30 +105,5 @@ def inf(image, model=None, processor=None):
     plt.show()
 
     plt.imshow(image)
-    plt.axis("off")
     plt.show()
-
-
-    '''instance_seg_mask = result["segmentation"].cpu().detach().numpy()
-    print(f"Final mask shape: {instance_seg_mask.shape}")
-    print("Segments Information...")
-    for info in result["segments_info"]:
-        print(f"  {info}")
-
-    instance_seg_mask_disp = visualize_instance_seg_mask(instance_seg_mask)
-    plt.figure(figsize=(10, 10))
-
-    for plot_index in range(2):
-        if plot_index == 0:
-            plot_image = image
-            title = "Original"
-        else:
-            plot_image = instance_seg_mask_disp
-            title = "Segmentation"
-
-        plt.subplot(1, 2, plot_index + 1)
-        plt.imshow(plot_image)
-        plt.title(title)
-        plt.axis("off")
-        plt.show()'''
 

@@ -3,16 +3,16 @@ import torch
 import numpy as np
 
 
-def train(
+def train_instance(
         model,
         train_dataloader,
         device,
         optimizer,
-        num_classes,
         processor,
-        metric
+        metric,
+        num_classes=1
 ):
-    print('Training')
+    print('Training instance')
     model.train()
     train_running_loss = []
 
@@ -45,38 +45,42 @@ def train(
         ##################################################
 
         target_sizes = [(image.shape[1], image.shape[2]) for image in batch['orig_images']]
-        pred_maps = processor.post_process_semantic_segmentation(
+        pred_maps = processor.post_process_instance_segmentation(
             outputs, target_sizes=target_sizes
         )
-        pred_maps_un=[]
-        batch_un=[]
-        for pr_map in pred_maps:
-            pred_maps_un.append(np.unique(pr_map))
-        for bt in batch['orig_masks']:
-            batch_un.append(np.unique(bt))
-        print(f"pred {pred_maps_un}")
-        print(f"bt {batch_un}")
+        pred_maps_2 = []
+        pred_maps_un = []
+        batch_mask_un = []
 
+        for p_map in pred_maps:
+            pred_maps_un.append(np.unique(p_map['segmentation'].cpu().detach().numpy()))
+            pred_maps_2.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
+
+        for b_mask in batch['orig_masks']:
+            batch_mask_un.append(np.unique(b_mask))
+            num_classes = max(num_classes, max(np.unique(b_mask)) - 1)
+        print(f"pred {pred_maps_un}")
+        print(f"bt {batch_mask_un}")
         ###########################
-        metric.add_batch(references=batch['orig_masks'], predictions=pred_maps)
+        metric.add_batch(references=batch['orig_masks'], predictions=pred_maps_2)
 
 
     ##### PER EPOCH LOSS #####
     train_loss = sum(train_running_loss)/len(train_running_loss)
     #, reduce_labels=True
-    metric = metric.compute(num_labels=num_classes, ignore_index=255)
+    metric = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)
     return train_loss, metric
 
 
-def validate(
+def validate_instance(
         model,
         valid_dataloader,
         device,
-        num_classes,
         processor,
-        metric
+        metric,
+        num_classes=1
 ):
-    print('Validating')
+    print('Validation instance')
     model.eval()
     valid_running_loss = []
 
@@ -99,24 +103,33 @@ def validate(
             valid_running_loss.append(loss.item())
 
             target_sizes = [(image.shape[1], image.shape[2]) for image in batch['orig_images']]
-            pred_maps = processor.post_process_semantic_segmentation(
+            pred_maps = processor.post_process_instance_segmentation(
                 outputs, target_sizes=target_sizes
             )
+            pred_maps_2 = []
             pred_maps_un = []
-            batch_un = []
-            for pr_map in pred_maps:
-                pred_maps_un.append(np.unique(pr_map))
-            for bt in batch['orig_masks']:
-                batch_un.append(np.unique(bt))
+            batch_mask_un = []
+
+            for p_map in pred_maps:
+                pred_maps_un.append(np.unique(p_map['segmentation'].cpu().detach().numpy()))
+                pred_maps_2.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
+
+            for b_mask in batch['orig_masks']:
+                batch_mask_un.append(np.unique(b_mask))
+                num_classes = max(num_classes, max(np.unique(b_mask)) - 1)
+
             print(f"pred {pred_maps_un}")
-            print(f"bt {batch_un}")
+            print(f"bt {batch_mask_un}")
 
             ###########################
-            metric.add_batch(references=batch['orig_masks'], predictions=pred_maps)
+            metric.add_batch(references=batch['orig_masks'], predictions=pred_maps_2)
 
     ##### PER EPOCH LOSS #####
     valid_loss = sum(valid_running_loss)/len(valid_running_loss)
     ##########################
     #, reduce_labels=True
-    metric = metric.compute(num_labels=num_classes, ignore_index=255)
+    metric = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)
     return valid_loss, metric
+
+
+

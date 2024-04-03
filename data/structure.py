@@ -21,10 +21,11 @@ def collate_fn(examples):
 
 
 class ImageSegmentationDataset(Dataset):
-    def __init__(self, dataset, processor, transform=None):
+    def __init__(self, dataset, processor, type, transform=None):
         self.dataset = dataset
         self.processor = processor
         self.transform = transform
+        self.type = type
 
     def __len__(self):
         return len(self.dataset)
@@ -34,19 +35,16 @@ class ImageSegmentationDataset(Dataset):
 
         instance_seg = np.array(self.dataset[idx]["annotation"])[..., 1]
         class_id_map = np.array(self.dataset[idx]["annotation"])[..., 0]
-        classes_transf = class_id_map
         class_labels = np.unique(class_id_map)
+        mask = instance_seg if self.type == 'instance' else class_id_map
         inst2class = {}
         for label in class_labels:
             instance_ids = np.unique(instance_seg[class_id_map == label])
             inst2class.update({i: label for i in instance_ids})
 
         if self.transform is not None:
-            transformed = self.transform(image=image, mask=class_id_map)
-            (image, instance_seg) = (transformed["image"], transformed["mask"])
-
-            classes_transf = instance_seg
-            #classes_transf[classes_transf != 0] = 1
+            transformed = self.transform(image=image, mask=mask)
+            (image, mask) = (transformed["image"], transformed["mask"])
 
             image = image.transpose(2, 0, 1)
         if class_labels.shape[0] == 1 and class_labels[0] == 0:
@@ -57,17 +55,24 @@ class ImageSegmentationDataset(Dataset):
                 (0, inputs["pixel_values"].shape[-2], inputs["pixel_values"].shape[-1])
             )
             inputs['orig_image'] = image
-            inputs['orig_mask'] = instance_seg
+            inputs['orig_mask'] = mask
         else:
-            inputs = self.processor(
-                [image],
-                [instance_seg],
-                #instance_id_to_semantic_id=inst2class,
-                return_tensors="pt"
-            )
+            if self.type == 'instance':
+                inputs = self.processor(
+                    [image],
+                    [mask],
+                    instance_id_to_semantic_id=inst2class,
+                    return_tensors="pt"
+                )
+            else:
+                inputs = self.processor(
+                    [image],
+                    [mask],
+                    return_tensors="pt"
+                )
             inputs = {
                 k: v.squeeze() if isinstance(v, torch.Tensor) else v[0] for k, v in inputs.items()
             }
             inputs['orig_image'] = image
-            inputs['orig_mask'] = classes_transf
+            inputs['orig_mask'] = mask
         return inputs

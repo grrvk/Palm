@@ -7,8 +7,8 @@ from transformers import (Mask2FormerForUniversalSegmentation,
                           MaskFormerImageProcessor)
 
 
-def load_model(device, folder_name='out', name='model_out'):
-    path = os.path.join(folder_name, name)
+def load_model(device, model_type, folder_name='out', name='model_out'):
+    path = os.path.join(folder_name, f"{model_type}_{name}")
     model = Mask2FormerForUniversalSegmentation.from_pretrained(
         os.path.join(path, 'final_model')
     ).to(device)
@@ -27,8 +27,8 @@ def load_model(device, folder_name='out', name='model_out'):
     return model, processor
 
 
-def save_model(model, processor, folder_name='out', name='model_out'):
-    out_dir = os.path.join(folder_name, name)
+def save_model(model, processor, model_type, folder_name='out', name='model_out'):
+    out_dir = os.path.join(folder_name, f"{model_type}_{name}")
     out_final_model = os.path.join(out_dir, 'final_model')
     out_final_processor = os.path.join(out_dir, 'final_processor')
 
@@ -45,30 +45,31 @@ def save_model(model, processor, folder_name='out', name='model_out'):
     processor.save_pretrained(out_final_processor)
 
 
-def draw_plot(x, train_values, val_values, ylabel, out_dir):
+def draw_plot(model_type, x, train_values, val_values, ylabel, out_dir):
     plt.plot(x, train_values, label=f'train {ylabel}')
     plt.plot(x, val_values, label=f'validation {ylabel}')
     plt.xlabel("epoch")
     plt.ylabel(f"{ylabel}")
     plt.title(f"Train/validation {ylabel}")
     plt.legend()
-    plt.savefig(os.path.join(out_dir, f'{ylabel}.png'))
+    plt.savefig(os.path.join(out_dir, f'{model_type}_{ylabel}.png'))
+    plt.clf()
 
 
-def plot_loss_miou(epochs, train_loss, valid_loss, train_miou, valid_miou, folder_name='out'):
+def plot_loss_miou(model_type, epochs, train_loss, valid_loss, train_miou, valid_miou, folder_name='out'):
     os.makedirs(folder_name, exist_ok=True)
     out_dir = os.path.join(folder_name)
 
     x = np.arange(1, epochs+1)
-    draw_plot(x, train_loss, valid_loss, 'loss', out_dir)
-    draw_plot(x, train_miou, valid_miou, 'miou', out_dir)
+    draw_plot(model_type, x, train_loss, valid_loss, 'loss', out_dir)
+    draw_plot(model_type, x, train_miou, valid_miou, 'miou', out_dir)
 
 
-def dump_metrics_log(epoch, timestamp, metrics_data, folder_name='out'):
+def dump_metrics_log(model_type, epoch, timestamp, metrics_data, folder_name='out'):
     os.makedirs(folder_name, exist_ok=True)
     out_dir = os.path.join(folder_name)
 
-    file = open(os.path.join(out_dir, "metrics.txt"), "a")
+    file = open(os.path.join(out_dir, f"{model_type}_metrics.txt"), "a")
     file.write(f"EPOCH {epoch} ------ {timestamp}\n")
     file.write('Train\n')
     file.write(str(metrics_data['train']))
@@ -77,5 +78,12 @@ def dump_metrics_log(epoch, timestamp, metrics_data, folder_name='out'):
     file.write("\n")
     file.close()
 
+
+def delete_metrics(model_type, folder_name='out'):
+    out_dir = os.path.join(folder_name)
+    path = os.path.join(out_dir, f"{model_type}_metrics.txt")
+    if os.path.exists(path):
+        os.remove(path)
+        print(f'Previous {model_type}_metrics.txt deleted')
 
 
