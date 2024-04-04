@@ -88,7 +88,7 @@ def inference_instance(image, model=None, processor=None):
         plt.subplot(1, 2, plot_index + 1)
         plt.imshow(plot_image)
         plt.title(title)
-        plt.show()
+    plt.show()
 
 
 def inference_semantic(image, model=None, processor=None):
