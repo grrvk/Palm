@@ -2,9 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from transformers import (Mask2FormerForUniversalSegmentation,
-                          Mask2FormerImageProcessor,
-                          MaskFormerForInstanceSegmentation,
-                          MaskFormerImageProcessor)
+                          Mask2FormerImageProcessor)
 
 
 def load_model(device, model_type, folder_name='out', name='model_out'):
@@ -17,13 +15,6 @@ def load_model(device, model_type, folder_name='out', name='model_out'):
         os.path.join(path, 'final_processor')
     )
 
-    '''model = MaskFormerForInstanceSegmentation.from_pretrained(
-        os.path.join(path, 'final_model')
-    ).to(device)
-
-    processor = MaskFormerImageProcessor.from_pretrained(
-        os.path.join(path, 'final_processor')
-    )'''
     return model, processor
 
 

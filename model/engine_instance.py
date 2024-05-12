@@ -25,8 +25,6 @@ def train_instance(
     for i, batch in enumerate(prog_bar):
         optimizer.zero_grad()
 
-        #print(batch['mask_labels'])
-        #print(batch['class_labels'])
         outputs = model(
             pixel_values=batch['pixel_values'].to(device),
             mask_labels=[mask_label.to(device) for mask_label in batch['mask_labels']],
@@ -34,40 +32,24 @@ def train_instance(
             pixel_mask=batch['pixel_mask'].to(device)
         )
 
-        ##### BATCH-WISE LOSS #####
         loss = outputs.loss
         train_running_loss.append(loss.item())
-        ###########################
 
-        ##### BACKPROPAGATION AND PARAMETER UPDATION #####
         loss.backward()
         optimizer.step()
-        ##################################################
 
         target_sizes = [(image.shape[1], image.shape[2]) for image in batch['orig_images']]
         pred_maps = processor.post_process_instance_segmentation(
             outputs, target_sizes=target_sizes
         )
-        pred_maps_2 = []
-        pred_maps_un = []
-        batch_mask_un = []
+        binary_prediction_maps = []
 
         for p_map in pred_maps:
-            pred_maps_un.append(np.unique(p_map['segmentation'].cpu().detach().numpy()))
-            pred_maps_2.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
+            binary_prediction_maps.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
 
-        for b_mask in batch['orig_masks']:
-            batch_mask_un.append(np.unique(b_mask))
-            num_classes = max(num_classes, max(np.unique(b_mask)) - 1)
-        print(f"pred {pred_maps_un}")
-        print(f"bt {batch_mask_un}")
-        ###########################
-        metric.add_batch(references=batch['orig_masks'], predictions=pred_maps_2)
+        metric.add_batch(references=batch['orig_masks'], predictions=binary_prediction_maps)
 
-
-    ##### PER EPOCH LOSS #####
     train_loss = sum(train_running_loss)/len(train_running_loss)
-    #, reduce_labels=True
     metric = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)
     return train_loss, metric
 
@@ -106,28 +88,14 @@ def validate_instance(
             pred_maps = processor.post_process_instance_segmentation(
                 outputs, target_sizes=target_sizes
             )
-            pred_maps_2 = []
-            pred_maps_un = []
-            batch_mask_un = []
+            binary_prediction_maps = []
 
             for p_map in pred_maps:
-                pred_maps_un.append(np.unique(p_map['segmentation'].cpu().detach().numpy()))
-                pred_maps_2.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
+                binary_prediction_maps.append(np.array(p_map['segmentation'].cpu().detach().numpy(), dtype='uint8'))
 
-            for b_mask in batch['orig_masks']:
-                batch_mask_un.append(np.unique(b_mask))
-                num_classes = max(num_classes, max(np.unique(b_mask)) - 1)
+            metric.add_batch(references=batch['orig_masks'], predictions=binary_prediction_maps)
 
-            print(f"pred {pred_maps_un}")
-            print(f"bt {batch_mask_un}")
-
-            ###########################
-            metric.add_batch(references=batch['orig_masks'], predictions=pred_maps_2)
-
-    ##### PER EPOCH LOSS #####
     valid_loss = sum(valid_running_loss)/len(valid_running_loss)
-    ##########################
-    #, reduce_labels=True
     metric = metric.compute(num_labels=num_classes, ignore_index=255, reduce_labels=True)
     return valid_loss, metric
 

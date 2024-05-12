@@ -21,11 +21,11 @@ def collate_fn(examples):
 
 
 class ImageSegmentationDataset(Dataset):
-    def __init__(self, dataset, processor, type, transform=None):
+    def __init__(self, dataset, processor, dataset_type, transform=None):
         self.dataset = dataset
         self.processor = processor
         self.transform = transform
-        self.type = type
+        self.dataset_type = dataset_type
 
     def __len__(self):
         return len(self.dataset)
@@ -36,7 +36,7 @@ class ImageSegmentationDataset(Dataset):
         instance_seg = np.array(self.dataset[idx]["annotation"])[..., 1]
         class_id_map = np.array(self.dataset[idx]["annotation"])[..., 0]
         class_labels = np.unique(class_id_map)
-        mask = instance_seg if self.type == 'instance' else class_id_map
+        mask = instance_seg if self.dataset_type == 'instance' else class_id_map
         inst2class = {}
         for label in class_labels:
             instance_ids = np.unique(instance_seg[class_id_map == label])
@@ -57,7 +57,7 @@ class ImageSegmentationDataset(Dataset):
             inputs['orig_image'] = image
             inputs['orig_mask'] = mask
         else:
-            if self.type == 'instance':
+            if self.dataset_type == 'instance':
                 inputs = self.processor(
                     [image],
                     [mask],

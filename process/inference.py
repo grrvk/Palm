@@ -3,13 +3,13 @@ from utils import load_model
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-import collections
+import glob
+from PIL import Image
 
 
 def visualize_instance_seg_mask(mask):
     image = np.zeros((mask.shape[0], mask.shape[1], 3))
     labels = np.unique(mask)
-    print(labels)
 
     label2color = {
         label: (
@@ -19,9 +19,8 @@ def visualize_instance_seg_mask(mask):
         )
         for label in labels if label != -1.0
     }
-    #label2color[-1] = (255, 255, 255)
+
     label2color.update({-1.0: (255, 255, 255)})
-    print(collections.Counter(np.asarray(mask).reshape(-1)))
 
     for height in range(image.shape[0]):
         for width in range(image.shape[1]):
@@ -31,17 +30,31 @@ def visualize_instance_seg_mask(mask):
     return image
 
 
-def dataset_inference(dataset, inference_type):
+def df_dataset_inference(dataset, inference_type):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, processor = load_model(device)
+    model, processor = load_model(device, inference_type)
 
     for i, entry in enumerate(dataset):
-        print(f"Image {i+1}")
+        print(f"Image {i + 1}")
         image = entry["image"].convert("RGB")
         if inference_type == 'instance':
             inference_instance(image, model, processor)
         else:
             inference_semantic(image, model, processor)
+
+
+def dataset_inference(dataset_path: str, inference_type):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model, processor = load_model(device, inference_type)
+    data = [file for file in glob.glob(dataset_path)]
+    for i, entry in enumerate(data):
+        print(f"Image {i + 1}")
+        image = Image.open(entry).convert("RGB")
+        if inference_type == 'instance':
+            inference_instance(image, model, processor)
+        else:
+            inference_semantic(image, model, processor)
+
 
 def get_outputs(model_type, image, model=None, processor=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,6 +68,7 @@ def get_outputs(model_type, image, model=None, processor=None):
         outputs = model(**inputs)
     return outputs, processor
 
+
 def inference_instance(image, model=None, processor=None):
     outputs, processor = get_outputs('instance', image, model, processor)
 
@@ -66,8 +80,6 @@ def inference_instance(image, model=None, processor=None):
 
     label_of_interest = 0
     instance_seg_mask = result["segmentation"].cpu().detach().numpy()
-    print(result)
-    print(f"Final mask shape: {instance_seg_mask.shape}")
     print("Segments Information...")
     for info in result["segments_info"]:
         print(f"  {info}")
@@ -83,7 +95,7 @@ def inference_instance(image, model=None, processor=None):
             title = "Original"
         else:
             plot_image = instance_seg_mask_disp
-            title = "Instance egmentation"
+            title = "Instance segmentation"
 
         plt.subplot(1, 2, plot_index + 1)
         plt.imshow(plot_image)
@@ -106,4 +118,3 @@ def inference_semantic(image, model=None, processor=None):
 
     plt.imshow(image)
     plt.show()
-
